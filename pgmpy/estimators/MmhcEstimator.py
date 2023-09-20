@@ -38,7 +38,13 @@ class MmhcEstimator(StructureEstimator):
         """
         super(MmhcEstimator, self).__init__(data, **kwargs)
 
-    def estimate(self, scoring_method=None, tabu_length=10, significance_level=0.01):
+    def estimate(
+        self,
+        scoring_method=None,
+        tabu_length=10,
+        significance_level=0.01,
+        black_list=None,
+    ):
         """
         Estimates a BayesianNetwork for the data set, using MMHC. First estimates a
         graph skeleton using MMPC and then orients the edges using score-based local
@@ -90,6 +96,7 @@ class MmhcEstimator(StructureEstimator):
 
         model = hc.estimate(
             scoring_method=scoring_method,
+            black_list=black_list,
             white_list=skel.to_directed().edges(),
             tabu_length=tabu_length,
         )

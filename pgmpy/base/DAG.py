@@ -1206,3 +1206,21 @@ class PDAG(nx.DiGraph):
                             pass
                 break
         return dag
+
+
+class CycleRemover:
+    def __init__(self):
+        pass
+
+    def remove_cycles(self, graph_to_process):
+        while True:
+            try:
+                # 1つの循環を見つける
+                cycle = nx.find_cycle(graph_to_process, orientation="original")
+
+                # 循環の最後のエッジを削除して循環を破壊
+                graph_to_process.remove_edge(cycle[-1][0], cycle[-1][1])
+                print(f"Removed edge: {cycle[-1]}")
+            except nx.NetworkXNoCycle:
+                # 循環がない場合は終了
+                break
