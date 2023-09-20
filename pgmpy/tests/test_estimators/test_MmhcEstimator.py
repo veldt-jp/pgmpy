@@ -61,6 +61,55 @@ class TestMmhcEstimator(unittest.TestCase):
             )
         )
 
+    def test_estimate_black_list(self):
+        black_list = [("Z", "sum"), ("sum", "Z")]
+        dag1 = self.est1.estimate(black_list=black_list)
+        self.assertTrue(len(dag1.edges()) > 1)
+        self.assertTrue(
+            set(dag1.edges()).issubset(
+                set(
+                    [
+                        ("X", "sum"),
+                        ("Y", "sum"),
+                        # ("Z", "sum"),
+                        ("sum", "X"),
+                        ("sum", "Y"),
+                        # ("sum", "Z"),
+                        ("X", "Y"),
+                        ("X", "Z"),
+                        ("Y", "Z"),
+                        ("Y", "X"),
+                        ("Z", "X"),
+                        ("Z", "Y"),
+                    ]
+                )
+            )
+        )
+
+        black_list = [("Z", "sum"), ("sum", "Z")]
+        dag2 = self.est1.estimate(significance_level=0.001, black_list=black_list)
+        self.assertTrue(len(dag2.edges()) > 1)
+        self.assertTrue(
+            set(dag2.edges()).issubset(
+                set(
+                    [
+                        ("X", "sum"),
+                        ("Y", "sum"),
+                        # ("Z", "sum"),
+                        ("sum", "X"),
+                        ("sum", "Y"),
+                        # ("sum", "Z"),
+                        ("X", "Y"),
+                        ("X", "Z"),
+                        ("Y", "Z"),
+                        ("Y", "X"),
+                        ("Z", "X"),
+                        ("Z", "Y"),
+                    ]
+                )
+            )
+        )
+
     def tearDown(self):
         del self.data1
         del self.est1

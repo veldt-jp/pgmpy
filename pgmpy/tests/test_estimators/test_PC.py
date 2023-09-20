@@ -349,6 +349,26 @@ class TestPCEstimatorFromDiscreteData(unittest.TestCase):
             expected_edges = {("Z", "sum"), ("X", "sum"), ("Y", "sum")}
             self.assertEqual(set(dag.edges()), expected_edges)
 
+    def test_build_dag_black_list(self):
+        for variant in ["orig", "stable", "parallel"]:
+            np.random.seed(42)
+            data = pd.DataFrame(
+                np.random.randint(0, 3, size=(10000, 3)), columns=list("XYZ")
+            )
+            data["sum"] = data.sum(axis=1)
+            black_list = [("Z", "sum")]
+            est = PC(data=data)
+            dag = est.estimate(
+                variant=variant,
+                ci_test="chi_square",
+                return_type="dag",
+                significance_level=0.001,
+                show_progress=False,
+                black_list=black_list,
+            )
+            expected_edges = {("X", "sum"), ("Y", "sum")}
+            self.assertEqual(set(dag.edges()), expected_edges)
+
 
 class TestPCEstimatorFromContinuousData(unittest.TestCase):
     def test_build_skeleton(self):
@@ -432,6 +452,24 @@ class TestPCEstimatorFromContinuousData(unittest.TestCase):
             )
 
             expected_edges = {("Z", "sum"), ("X", "sum"), ("Y", "sum")}
+            self.assertEqual(set(dag.edges()), expected_edges)
+
+    def test_build_dag_black_list(self):
+        for variant in ["orig", "stable", "parallel"]:
+            np.random.seed(42)
+            data = pd.DataFrame(np.random.randn(10000, 3), columns=list("XYZ"))
+            data["sum"] = data.sum(axis=1)
+            black_list = [("Z", "sum")]
+            est = PC(data=data)
+            dag = est.estimate(
+                variant=variant,
+                ci_test="pearsonr",
+                return_type="dag",
+                show_progress=False,
+                black_list=black_list,
+            )
+
+            expected_edges = {("X", "sum"), ("Y", "sum")}
             self.assertEqual(set(dag.edges()), expected_edges)
 
 
