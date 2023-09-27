@@ -197,10 +197,11 @@ class PC(StructureEstimator):
         if return_type.lower() in ("pdag", "cpdag"):
             return pdag
         elif return_type.lower() == "dag":
+            dag = pdag.to_dag()
             # 循環を破壊
             remover = CycleRemover()
-            remover.remove_cycles(pdag)
-            return pdag.to_dag()
+            remover.remove_cycles(dag)
+            return dag
         else:
             raise ValueError(
                 f"return_type must be one of: dag, pdag, cpdag, or skeleton. Got: {return_type}"
