@@ -487,4 +487,10 @@ class PC(StructureEstimator):
                 undirected_edges.append((u, v))
             else:
                 directed_edges.append((u, v))
-        return PDAG(directed_ebunch=directed_edges, undirected_ebunch=undirected_edges)
+                
+        pdag = PDAG(directed_ebunch=directed_edges, undirected_ebunch=undirected_edges)
+        node_list = list(skeleton.nodes())
+        pdag.add_nodes_from(node_list)
+        print('pdag')
+        print(pdag.nodes())
+        return pdag

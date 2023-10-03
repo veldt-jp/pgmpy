@@ -3,6 +3,7 @@ import unittest
 import networkx as nx
 import numpy as np
 import pandas as pd
+import os
 
 from pgmpy.estimators import PC
 from pgmpy.independencies import Independencies
@@ -485,3 +486,19 @@ class TestPCRealModels(unittest.TestCase):
         data = BayesianModelSampling(asia_model).forward_sample(size=int(1e3), seed=42)
         est = PC(data)
         dag = est.estimate(variant="stable", max_cond_vars=1, show_progress=False)
+
+    def test_pc_partial_no_edge(self):
+        # 現在のファイルの絶対パスを取得
+        current_file_path = os.path.abspath(os.path.dirname(__file__))
+
+        # テストデータの絶対パスを構築
+        data_file_path = os.path.join(current_file_path, 'testdata/partial_no_edge.csv')
+
+        # ファイルを読み込む
+        data = pd.read_csv(data_file_path)
+
+        est = PC(data)
+        dag = est.estimate(variant="stable", show_progress=False)
+        expected_nodes = ['heartRate', 'sleepEfficiency', 'standHour', 'dietaryFatTotal', 'basalEnergyBurned']
+        
+        self.assertEqual(set(dag.nodes()), set(expected_nodes))
