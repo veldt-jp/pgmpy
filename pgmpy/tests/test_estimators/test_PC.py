@@ -3,6 +3,7 @@ import unittest
 import networkx as nx
 import numpy as np
 import pandas as pd
+import os
 
 from pgmpy.estimators import PC
 from pgmpy.independencies import Independencies
@@ -349,6 +350,26 @@ class TestPCEstimatorFromDiscreteData(unittest.TestCase):
             expected_edges = {("Z", "sum"), ("X", "sum"), ("Y", "sum")}
             self.assertEqual(set(dag.edges()), expected_edges)
 
+    def test_build_dag_black_list(self):
+        for variant in ["orig", "stable", "parallel"]:
+            np.random.seed(42)
+            data = pd.DataFrame(
+                np.random.randint(0, 3, size=(10000, 3)), columns=list("XYZ")
+            )
+            data["sum"] = data.sum(axis=1)
+            black_list = [("Z", "sum")]
+            est = PC(data=data)
+            dag = est.estimate(
+                variant=variant,
+                ci_test="chi_square",
+                return_type="dag",
+                significance_level=0.001,
+                show_progress=False,
+                black_list=black_list,
+            )
+            expected_edges = {("X", "sum"), ("Y", "sum")}
+            self.assertEqual(set(dag.edges()), expected_edges)
+
 
 class TestPCEstimatorFromContinuousData(unittest.TestCase):
     def test_build_skeleton(self):
@@ -434,6 +455,24 @@ class TestPCEstimatorFromContinuousData(unittest.TestCase):
             expected_edges = {("Z", "sum"), ("X", "sum"), ("Y", "sum")}
             self.assertEqual(set(dag.edges()), expected_edges)
 
+    def test_build_dag_black_list(self):
+        for variant in ["orig", "stable", "parallel"]:
+            np.random.seed(42)
+            data = pd.DataFrame(np.random.randn(10000, 3), columns=list("XYZ"))
+            data["sum"] = data.sum(axis=1)
+            black_list = [("Z", "sum")]
+            est = PC(data=data)
+            dag = est.estimate(
+                variant=variant,
+                ci_test="pearsonr",
+                return_type="dag",
+                show_progress=False,
+                black_list=black_list,
+            )
+
+            expected_edges = {("X", "sum"), ("Y", "sum")}
+            self.assertEqual(set(dag.edges()), expected_edges)
+
 
 class TestPCRealModels(unittest.TestCase):
     def test_pc_alarm(self):
@@ -447,3 +486,19 @@ class TestPCRealModels(unittest.TestCase):
         data = BayesianModelSampling(asia_model).forward_sample(size=int(1e3), seed=42)
         est = PC(data)
         dag = est.estimate(variant="stable", max_cond_vars=1, show_progress=False)
+
+    def test_pc_partial_no_edge(self):
+        # 現在のファイルの絶対パスを取得
+        current_file_path = os.path.abspath(os.path.dirname(__file__))
+
+        # テストデータの絶対パスを構築
+        data_file_path = os.path.join(current_file_path, 'testdata/partial_no_edge.csv')
+
+        # ファイルを読み込む
+        data = pd.read_csv(data_file_path)
+
+        est = PC(data)
+        dag = est.estimate(variant="stable", show_progress=False)
+        expected_nodes = ['heartRate', 'sleepEfficiency', 'standHour', 'dietaryFatTotal', 'basalEnergyBurned']
+        
+        self.assertEqual(set(dag.nodes()), set(expected_nodes))

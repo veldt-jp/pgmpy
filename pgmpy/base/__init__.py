@@ -1,4 +1,4 @@
 from .UndirectedGraph import UndirectedGraph
-from .DAG import DAG, PDAG
+from .DAG import DAG, PDAG, CycleRemover
 
-__all__ = ["UndirectedGraph", "DAG", "PDAG"]
+__all__ = ["UndirectedGraph", "DAG", "PDAG", "CycleRemover"]

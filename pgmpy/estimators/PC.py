@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from pgmpy import config
-from pgmpy.base import PDAG
+from pgmpy.base import PDAG, CycleRemover
 from pgmpy.estimators import StructureEstimator
 from pgmpy.estimators.CITests import *
 from pgmpy.global_vars import logger
@@ -60,6 +60,7 @@ class PC(StructureEstimator):
         significance_level=0.01,
         n_jobs=-1,
         show_progress=True,
+        black_list=None,
         **kwargs,
     ):
         """
@@ -190,13 +191,17 @@ class PC(StructureEstimator):
             return skel, separating_sets
 
         # Step 2: Orient the edges based on build the PDAG/CPDAG.
-        pdag = self.skeleton_to_pdag(skel, separating_sets)
+        pdag = self.skeleton_to_pdag(skel, separating_sets, black_list)
 
         # Step 3: Either return the CPDAG or fully orient the edges to build a DAG.
         if return_type.lower() in ("pdag", "cpdag"):
             return pdag
         elif return_type.lower() == "dag":
-            return pdag.to_dag()
+            dag = pdag.to_dag()
+            # 循環を破壊
+            remover = CycleRemover()
+            remover.remove_cycles(dag)
+            return dag
         else:
             raise ValueError(
                 f"return_type must be one of: dag, pdag, cpdag, or skeleton. Got: {return_type}"
@@ -367,7 +372,7 @@ class PC(StructureEstimator):
         return graph, separating_sets
 
     @staticmethod
-    def skeleton_to_pdag(skeleton, separating_sets):
+    def skeleton_to_pdag(skeleton, separating_sets, black_list=None):
         """Orients the edges of a graph skeleton based on information from
         `separating_sets` to form a DAG pattern (DAG).
 
@@ -411,6 +416,12 @@ class PC(StructureEstimator):
         """
 
         pdag = skeleton.to_directed()
+
+        if black_list is not None:
+            for edge in black_list:
+                if pdag.has_edge(*edge):
+                    pdag.remove_edge(*edge)
+
         node_pairs = list(permutations(pdag.nodes(), 2))
 
         # 1) for each X-Z-Y, if Z not in the separating set of X,Y, then orient edges as X->Z<-Y
@@ -476,4 +487,8 @@ class PC(StructureEstimator):
                 undirected_edges.append((u, v))
             else:
                 directed_edges.append((u, v))
-        return PDAG(directed_ebunch=directed_edges, undirected_ebunch=undirected_edges)
+                
+        pdag = PDAG(directed_ebunch=directed_edges, undirected_ebunch=undirected_edges)
+        node_list = list(skeleton.nodes())
+        pdag.add_nodes_from(node_list)
+        return pdag
