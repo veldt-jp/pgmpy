@@ -1,16 +1,17 @@
-from itertools import combinations, chain
+import typing
 from collections import defaultdict
 from dataclasses import dataclass
-import typing
+from itertools import chain, combinations
 
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
 from tqdm.auto import tqdm
 
+from pgmpy import config
 from pgmpy.base import DAG
 from pgmpy.factors.discrete import TabularCPD
-from pgmpy.global_vars import SHOW_PROGRESS
+from pgmpy.utils import compat_fns
 
 
 @dataclass(eq=True, frozen=True)
@@ -589,11 +590,9 @@ class DynamicBayesianNetwork(DAG):
                     raise ValueError(
                         f"CPD associated with {node} doesn't have proper parents associated with it."
                     )
-                if not np.allclose(
-                    cpd.to_factor()
-                    .marginalize([node], inplace=False)
-                    .values.flatten("C"),
-                    np.ones(np.product(evidence_card)),
+                if not config.get_compute_backend().allclose(
+                    cpd.to_factor().marginalize([node], inplace=False).values.flatten(),
+                    compat_fns.ones(np.prod(evidence_card)),
                     atol=0.01,
                 ):
                     raise ValueError(
@@ -1076,7 +1075,7 @@ class DynamicBayesianNetwork(DAG):
         """
         from pgmpy.sampling import BayesianModelSampling
 
-        if show_progress and SHOW_PROGRESS:
+        if show_progress and config.SHOW_PROGRESS:
             pbar = tqdm(total=n_time_slices * len(self._nodes()))
 
         # Step 1: Create some data structures for easily accessing values

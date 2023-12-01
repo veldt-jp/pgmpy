@@ -5,6 +5,7 @@ from itertools import product
 from string import Template
 
 import numpy as np
+import pyparsing as pp
 from joblib import Parallel, delayed
 from pyparsing import (
     CharsNotIn,
@@ -22,6 +23,7 @@ from pyparsing import (
 
 from pgmpy.factors.discrete import TabularCPD
 from pgmpy.models import BayesianNetwork
+from pgmpy.utils import compat_fns
 
 
 class BIFReader(object):
@@ -106,7 +108,7 @@ class BIFReader(object):
         A method that returns variable grammar
         """
         # Defining an expression for valid word
-        word_expr = Word(alphanums + "_" + "-")
+        word_expr = Word(pp.unicode.alphanums + "_" + "-")
         word_expr2 = Word(initChars=printables, excludeChars=["{", "}", ",", " "])
         name_expr = Suppress("variable") + word_expr + Suppress("{")
         state_expr = ZeroOrMore(word_expr2 + Optional(Suppress(",")))
@@ -137,7 +139,7 @@ class BIFReader(object):
         # Creating valid word expression for probability, it is of the format
         # wor1 | var2 , var3 or var1 var2 var3 or simply var
         word_expr = (
-            Word(alphanums + "-" + "_")
+            Word(pp.unicode.alphanums + "-" + "_")
             + Suppress(Optional("|"))
             + Suppress(Optional(","))
         )
@@ -185,7 +187,9 @@ class BIFReader(object):
         start = self.network.find("network")
         end = self.network.find("}\n", start)
         # Creating a network attribute
-        network_attribute = Suppress("network") + Word(alphanums + "_" + "-") + "{"
+        network_attribute = (
+            Suppress("network") + Word(pp.unicode.alphanums + "_" + "-") + "{"
+        )
         network_name = network_attribute.searchString(self.network[start:end])[0][0]
 
         return network_name
@@ -420,13 +424,16 @@ class BIFWriter(object):
     Base class for writing BIF network file format
     """
 
-    def __init__(self, model):
+    def __init__(self, model, round_values=None):
         """
         Initialise a BIFWriter Object
 
         Parameters
         ----------
         model: BayesianNetwork Instance
+
+        round_values: int (default: None)
+            Round the probability values to `round_values` decimals. If None, keeps all decimal points.
 
         Examples
         ---------
@@ -441,6 +448,7 @@ class BIFWriter(object):
         if not isinstance(model, BayesianNetwork):
             raise TypeError("model must be an instance of BayesianNetwork")
         self.model = model
+        self.round_values = round_values
         if not self.model.name:
             self.network_name = "unknown"
         else:
@@ -540,7 +548,15 @@ $values
                 for index, state in enumerate(parent_states):
                     all_cpd += conditional_probability_template.substitute(
                         state=", ".join(map(str, state)),
-                        values=", ".join(map(str, cpd_values_transpose[index, :])),
+                        values=", ".join(
+                            map(
+                                str,
+                                compat_fns.to_numpy(
+                                    cpd_values_transpose[index, :],
+                                    decimals=self.round_values,
+                                ),
+                            )
+                        ),
                     )
                 network += conditional_probability_template_total.substitute(
                     variable_=var,
@@ -677,7 +693,9 @@ $values
         cpds = self.model.get_cpds()
         tables = {}
         for cpd in cpds:
-            tables[cpd.variable] = cpd.values.ravel()
+            tables[cpd.variable] = compat_fns.to_numpy(
+                cpd.values.ravel(), decimals=self.round_values
+            )
         return tables
 
     def write_bif(self, filename):

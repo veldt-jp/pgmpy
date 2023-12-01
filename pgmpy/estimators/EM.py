@@ -1,4 +1,3 @@
-import warnings
 from itertools import chain, product
 from math import log
 
@@ -7,9 +6,9 @@ import pandas as pd
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
+from pgmpy import config
 from pgmpy.estimators import MaximumLikelihoodEstimator, ParameterEstimator
 from pgmpy.factors.discrete import TabularCPD
-from pgmpy.global_vars import SHOW_PROGRESS
 from pgmpy.models import BayesianNetwork
 
 
@@ -71,19 +70,13 @@ class ExpectationMaximization(ParameterEstimator):
         them together.
         """
         likelihood = 0
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            for cpd in self.model_copy.cpds:
-                scope = set(cpd.scope())
-                likelihood += log(
-                    cpd.get_value(
-                        **{
-                            key: value
-                            for key, value in datapoint.items()
-                            if key in scope
-                        }
-                    )
+        for cpd in self.model_copy.cpds:
+            scope = set(cpd.scope())
+            likelihood += log(
+                cpd.get_value(
+                    **{key: value for key, value in datapoint.items() if key in scope}
                 )
+            )
         return likelihood
 
     def _parallel_compute_weights(
@@ -229,7 +222,7 @@ class ExpectationMaximization(ParameterEstimator):
 
         self.model_copy.add_cpds(*cpds)
 
-        if show_progress and SHOW_PROGRESS:
+        if show_progress and config.SHOW_PROGRESS:
             pbar = tqdm(total=max_iter)
 
         # Step 4: Run the EM algorithm.
@@ -244,13 +237,13 @@ class ExpectationMaximization(ParameterEstimator):
 
             # Step 4.3: Check of convergence and max_iter
             if self._is_converged(new_cpds, atol=atol):
-                if show_progress and SHOW_PROGRESS:
+                if show_progress and config.SHOW_PROGRESS:
                     pbar.close()
                 return new_cpds
 
             else:
                 self.model_copy.cpds = new_cpds
-                if show_progress and SHOW_PROGRESS:
+                if show_progress and config.SHOW_PROGRESS:
                     pbar.update(1)
 
         return cpds

@@ -5,6 +5,7 @@ from itertools import permutations
 import networkx as nx
 from tqdm.auto import trange
 
+from pgmpy import config
 from pgmpy.base import DAG
 from pgmpy.estimators import (
     AICScore,
@@ -16,7 +17,6 @@ from pgmpy.estimators import (
     StructureEstimator,
     StructureScore,
 )
-from pgmpy.global_vars import SHOW_PROGRESS
 
 
 class HillClimbSearch(StructureEstimator):
@@ -186,9 +186,11 @@ class HillClimbSearch(StructureEstimator):
         max_indegree: int or None
             If provided and unequal None, the procedure only searches among models
             where all nodes have at most `max_indegree` parents. Defaults to None.
+
         black_list: list or None
             If a list of edges is provided as `black_list`, they are excluded from the search
             and the resulting model will not contain any of those edges. Default: None
+
         white_list: list or None
             If a list of edges is provided as `white_list`, the search is limited to those
             edges. The resulting model will then only contain edges that are in `white_list`.
@@ -293,7 +295,7 @@ class HillClimbSearch(StructureEstimator):
         tabu_list = deque(maxlen=tabu_length)
         current_model = start_dag
 
-        if show_progress and SHOW_PROGRESS:
+        if show_progress and config.SHOW_PROGRESS:
             iteration = trange(int(max_iter))
         else:
             iteration = range(int(max_iter))

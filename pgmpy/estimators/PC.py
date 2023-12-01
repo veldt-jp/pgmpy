@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
-import logging
 from itertools import chain, combinations, permutations
 
 import networkx as nx
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
+from pgmpy import config
 from pgmpy.base import PDAG, CycleRemover
 from pgmpy.estimators import StructureEstimator
 from pgmpy.estimators.CITests import *
-from pgmpy.global_vars import SHOW_PROGRESS
+from pgmpy.global_vars import logger
 
 CI_TESTS = {
     "chi_square": chi_square,
@@ -261,7 +261,7 @@ class PC(StructureEstimator):
                     f"ci_test must either be one of {list(CI_TESTS.keys())}, or a function. Got: {ci_test}"
                 )
 
-        if show_progress and SHOW_PROGRESS:
+        if show_progress and config.SHOW_PROGRESS:
             pbar = tqdm(total=max_cond_vars)
             pbar.set_description("Working for n conditional variables: 0")
 
@@ -338,7 +338,7 @@ class PC(StructureEstimator):
                         ):
                             return (u, v), separating_set
 
-                results = Parallel(n_jobs=n_jobs, prefer="threads")(
+                results = Parallel(n_jobs=n_jobs)(
                     delayed(_parallel_fun)(u, v) for (u, v) in graph.edges()
                 )
                 for result in results:
@@ -355,19 +355,19 @@ class PC(StructureEstimator):
             # Step 3: After iterating over all the edges, expand the search space by increasing the size
             #         of conditioning set by 1.
             if lim_neighbors >= max_cond_vars:
-                logging.info(
+                logger.info(
                     "Reached maximum number of allowed conditional variables. Exiting"
                 )
                 break
             lim_neighbors += 1
 
-            if show_progress and SHOW_PROGRESS:
+            if show_progress and config.SHOW_PROGRESS:
                 pbar.update(1)
                 pbar.set_description(
                     f"Working for n conditional variables: {lim_neighbors}"
                 )
 
-        if show_progress and SHOW_PROGRESS:
+        if show_progress and config.SHOW_PROGRESS:
             pbar.close()
         return graph, separating_sets
 

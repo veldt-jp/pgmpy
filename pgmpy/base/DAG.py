@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import itertools
-from warnings import warn
 
 import networkx as nx
 import numpy as np
 
 from pgmpy.base import UndirectedGraph
+from pgmpy.global_vars import logger
 from pgmpy.independencies import Independencies
 
 
@@ -1066,6 +1066,20 @@ class DAG(nx.DiGraph):
             )
         return dag
 
+    def to_graphviz(self):
+        """
+        Retuns a pygraphviz object for the DAG. pygraphviz is useful for
+        visualizing the network structure.
+
+        Examples
+        --------
+        >>> from pgmpy.utils import get_example_model
+        >>> model = get_example_model('alarm')
+        >>> model.to_graphviz()
+        <AGraph <Swig Object of type 'Agraph_t *' at 0x7fdea4cde040>>
+        """
+        return nx.nx_agraph.to_agraph(self)
+
 
 class PDAG(nx.DiGraph):
     """
@@ -1193,7 +1207,7 @@ class PDAG(nx.DiGraph):
                     break
 
             if not found:
-                warn(
+                logger.warning(
                     "PDAG has no faithful extension (= no oriented DAG with the "
                     + "same v-structures as PDAG). Remaining undirected PDAG edges "
                     + "oriented arbitrarily."
@@ -1207,6 +1221,19 @@ class PDAG(nx.DiGraph):
                 break
         return dag
 
+    def to_graphviz(self):
+        """
+        Retuns a pygraphviz object for the DAG. pygraphviz is useful for
+        visualizing the network structure.
+
+        Examples
+        --------
+        >>> from pgmpy.utils import get_example_model
+        >>> model = get_example_model('alarm')
+        >>> model.to_graphviz()
+        <AGraph <Swig Object of type 'Agraph_t *' at 0x7fdea4cde040>>
+        """
+        return nx.nx_agraph.to_agraph(self)
 
 class CycleRemover:
     def __init__(self):

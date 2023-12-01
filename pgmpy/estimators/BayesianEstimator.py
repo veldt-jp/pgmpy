@@ -2,13 +2,13 @@
 
 import numbers
 from itertools import chain
-from warnings import warn
 
 import numpy as np
 from joblib import Parallel, delayed
 
 from pgmpy.estimators import ParameterEstimator
 from pgmpy.factors.discrete import TabularCPD
+from pgmpy.global_vars import logger
 from pgmpy.models import BayesianNetwork
 
 
@@ -105,9 +105,11 @@ class BayesianEstimator(ParameterEstimator):
             )
             return cpd
 
-        parameters = Parallel(n_jobs=n_jobs, prefer="threads")(
+        parameters = Parallel(n_jobs=n_jobs)(
             delayed(_get_node_param)(node) for node in self.model.nodes()
         )
+        # TODO: A hacky solution to return correct value for the chosen backend. Ref #1675
+        parameters = [p.copy() for p in parameters]
 
         return parameters
 
@@ -190,7 +192,7 @@ class BayesianEstimator(ParameterEstimator):
             and np.array(pseudo_counts).size > 0
             and (prior_type != "dirichlet")
         ):
-            warn(
+            logger.warning(
                 f"pseudo count specified with {prior_type} prior. It will be ignored, use dirichlet prior for specifying pseudo_counts"
             )
 

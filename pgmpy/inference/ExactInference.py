@@ -7,9 +7,9 @@ import numpy as np
 from opt_einsum import contract
 from tqdm.auto import tqdm
 
+from pgmpy import config
 from pgmpy.factors import factor_product
 from pgmpy.factors.discrete import DiscreteFactor
-from pgmpy.global_vars import SHOW_PROGRESS
 from pgmpy.inference import Inference
 from pgmpy.inference.EliminationOrder import (
     MinFill,
@@ -23,6 +23,7 @@ from pgmpy.models import (
     JunctionTree,
     MarkovNetwork,
 )
+from pgmpy.utils import compat_fns
 
 
 class VariableElimination(Inference):
@@ -186,13 +187,13 @@ class VariableElimination(Inference):
         )
 
         # Step 3: Run variable elimination
-        if show_progress and SHOW_PROGRESS:
+        if show_progress and config.SHOW_PROGRESS:
             pbar = tqdm(elimination_order)
         else:
             pbar = elimination_order
 
         for var in pbar:
-            if show_progress and SHOW_PROGRESS:
+            if show_progress and config.SHOW_PROGRESS:
                 pbar.set_description(f"Eliminating: {var}")
             # Removing all the factors containing the variables which are
             # eliminated (as all the factors should be considered only once)
@@ -338,12 +339,6 @@ class VariableElimination(Inference):
                         phi.variables[index], evidence[phi.variables[index]]
                     )
                 reduce_indexes.append(tuple(indexer))
-                reshape_indexes.append(
-                    [
-                        1 if indexer != slice(None) else phi.cardinality[i]
-                        for i, indexer in enumerate(reduce_indexes[-1])
-                    ]
-                )
 
             # Step 5.2: Prepare values and index arrays to do use in einsum
             if isinstance(self.model, JunctionTree):
@@ -355,12 +350,33 @@ class VariableElimination(Inference):
                 }
             else:
                 var_int_map = {var: i for i, var in enumerate(model_reduced.nodes())}
+
+            evidence_var_set = set(evidence.keys())
             einsum_expr = []
-            for index, phi in enumerate(factors):
-                einsum_expr.append(
-                    (phi.values[reduce_indexes[index]]).reshape(reshape_indexes[index])
-                )
-                einsum_expr.append([var_int_map[var] for var in phi.variables])
+
+            if isinstance(self.model, BayesianNetwork):
+                for index, phi in enumerate(factors):
+                    if len(set(phi.variables) - evidence_var_set) > 0:
+                        # if phi.variable not in evidence_var_set:
+                        einsum_expr.append((phi.values[reduce_indexes[index]]))
+                        einsum_expr.append(
+                            [
+                                var_int_map[var]
+                                for var in phi.variables
+                                if var not in evidence.keys()
+                            ]
+                        )
+            else:
+                for index, phi in enumerate(factors):
+                    einsum_expr.append((phi.values[reduce_indexes[index]]))
+                    einsum_expr.append(
+                        [
+                            var_int_map[var]
+                            for var in phi.variables
+                            if var not in evidence.keys()
+                        ]
+                    )
+
             result_values = contract(
                 *einsum_expr, [var_int_map[var] for var in variables], optimize="greedy"
             )
@@ -477,7 +493,7 @@ class VariableElimination(Inference):
             show_progress=show_progress,
         )
 
-        return np.max(final_distribution.values)
+        return compat_fns.max(final_distribution.values)
 
     def map_query(
         self,
@@ -488,10 +504,8 @@ class VariableElimination(Inference):
         show_progress=True,
     ):
         """
-        Computes the MAP Query over the variables given the evidence.
-
-        Note: When multiple variables are passed, it returns the map_query for each
-        of them individually.
+        Computes the MAP Query over the variables given the evidence. Returns the
+        highest probable state in the joint distribution of `variables`.
 
         Parameters
         ----------
@@ -555,7 +569,6 @@ class VariableElimination(Inference):
         reduced_ve = VariableElimination(model_reduced)
         reduced_ve._initialize_structures()
 
-        # TODO:Check the note in docstring. Change that behavior to return the joint MAP
         final_distribution = reduced_ve._variable_elimination(
             variables=variables,
             operation="marginalize",
@@ -564,8 +577,7 @@ class VariableElimination(Inference):
             joint=True,
             show_progress=show_progress,
         )
-
-        argmax = np.argmax(final_distribution.values)
+        argmax = compat_fns.argmax(final_distribution.values)
         assignment = final_distribution.assignment([argmax])[0]
 
         map_query_results = {}
@@ -573,13 +585,7 @@ class VariableElimination(Inference):
             var, value = var_assignment
             map_query_results[var] = value
 
-        if not variables:
-            return map_query_results
-        else:
-            return_dict = {}
-            for var in variables:
-                return_dict[var] = map_query_results[var]
-            return return_dict
+        return map_query_results
 
     def induced_graph(self, elimination_order):
         """
@@ -1130,10 +1136,8 @@ class BeliefPropagation(Inference):
         self, variables=None, evidence=None, virtual_evidence=None, show_progress=True
     ):
         """
-        MAP Query method using belief propagation.
-
-        Note: When multiple variables are passed, it returns the map_query for each
-        of them individually.
+        MAP Query method using belief propagation. Returns the highest probable
+        state in the joint distributon of `variables`.
 
         Parameters
         ----------
@@ -1214,6 +1218,7 @@ class BeliefPropagation(Inference):
             variables=variables,
             operation="marginalize",
             evidence=evidence,
+            joint=True,
             show_progress=show_progress,
         )
 
@@ -1221,7 +1226,7 @@ class BeliefPropagation(Inference):
 
         # To handle the case when no argument is passed then
         # _variable_elimination returns a dict.
-        argmax = np.argmax(final_distribution.values)
+        argmax = compat_fns.argmax(final_distribution.values)
         assignment = final_distribution.assignment([argmax])[0]
 
         map_query_results = {}
@@ -1229,10 +1234,4 @@ class BeliefPropagation(Inference):
             var, value = var_assignment
             map_query_results[var] = value
 
-        if not variables:
-            return map_query_results
-        else:
-            return_dict = {}
-            for var in variables:
-                return_dict[var] = map_query_results[var]
-            return return_dict
+        return map_query_results

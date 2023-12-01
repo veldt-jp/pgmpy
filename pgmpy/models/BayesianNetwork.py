@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import itertools
-import logging
 from collections import defaultdict
 from functools import reduce
 from operator import mul
@@ -20,6 +19,8 @@ from pgmpy.factors.discrete import (
     TabularCPD,
 )
 from pgmpy.models.MarkovNetwork import MarkovNetwork
+from pgmpy.utils import compat_fns
+from pgmpy.global_vars import logger
 
 
 class BayesianNetwork(DAG):
@@ -259,7 +260,7 @@ class BayesianNetwork(DAG):
 
             for prev_cpd_index in range(len(self.cpds)):
                 if self.cpds[prev_cpd_index].variable == cpd.variable:
-                    logging.info(f"Replacing existing CPD for {cpd.variable}")
+                    logger.warning(f"Replacing existing CPD for {cpd.variable}")
                     self.cpds[prev_cpd_index] = cpd
                     break
             else:
@@ -418,15 +419,15 @@ class BayesianNetwork(DAG):
                         f"CPD associated with {node} doesn't have proper parents associated with it."
                     )
 
+                if len(set(cpd.variables) - set(cpd.state_names.keys())) > 0:
+                    raise ValueError(
+                        f"CPD for {node} doesn't have state names defined for all the variables."
+                    )
+
                 # Check if the values of the CPD sum to 1.
                 if not cpd.is_valid_cpd():
                     raise ValueError(
                         f"Sum or integral of conditional probabilities for node {node} is not equal to 1."
-                    )
-
-                if len(set(cpd.variables) - set(cpd.state_names.keys())) > 0:
-                    raise ValueError(
-                        f"CPD for {node} doesn't have state names defined for all the variables."
                     )
 
         for node in self.nodes():
@@ -1286,7 +1287,9 @@ class BayesianNetwork(DAG):
                 var = cpd.variables[0]
                 new_var = "__" + var
                 model.add_edge(var, new_var)
-                values = np.vstack((cpd.values, 1 - cpd.values))
+                values = compat_fns.get_compute_backend().vstack(
+                    (cpd.values, 1 - cpd.values)
+                )
                 new_cpd = TabularCPD(
                     variable=new_var,
                     variable_card=2,
